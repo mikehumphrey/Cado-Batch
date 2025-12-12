@@ -1,3 +1,40 @@
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.code-workspace
+
+# Temporary/runtime files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# Investigation artifacts and evidence
+investigations/
+**/collected_files/
+forensic_collection_*.txt
+DEPLOYMENT_TRACKING.txt
+INCIDENT_LOG.txt
+INVESTIGATION_METADATA.txt
+SHA256_MANIFEST.txt
+collected_files.zip
+
+# Logs
+logs/
+**/*.log
+
+# Tooling caches and large optional tools
+tools/optional/ZimmermanTools/
 bins/md5deep/*
 bins/Sigcheck/*
 bins/Strings/*
+
+# Archives (generated outputs)
+*.zip
+*.7z
+*.tar
+*.gz
+*.bz2
