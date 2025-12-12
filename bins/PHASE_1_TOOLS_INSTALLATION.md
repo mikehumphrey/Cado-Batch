@@ -8,8 +8,8 @@ This document provides instructions for obtaining and installing Phase 1 forensi
 **Purpose:** Generate SHA256 hashes of collected files for chain of custody verification
 
 **Download Instructions:**
-1. Visit: https://sourceforge.net/projects/md5deep/files/md5deep/4.4.0/
-2. Download: `md5deep-4.4.0-win64.zip` (approximately 70 KB)
+1. Visit: https://github.com/jessek/hashdeep/releases/download/v4.4/md5deep-4.4
+2. Download the appropriate version for your OS (e.g., `md5deep-4.4-win64.zip`)
 3. Extract the ZIP file
 4. Copy `hashdeep.exe` to this `bins/` directory
 5. If hashdeep.exe not found, copy `md5deep.exe` and rename to `hashdeep.exe`
