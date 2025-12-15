@@ -1,0 +1,74 @@
+Host Evidence Runner (HER)
+Copyright 2025 Michael Humphrey
+
+This project is derived from the archived Cado-Batch repository 
+(https://github.com/cado-security/varc), originally developed by 
+Cado Security Limited and licensed under Apache License 2.0.
+
+================================================================================
+NOTICE OF MODIFICATIONS
+================================================================================
+
+This fork has been independently maintained and includes the following 
+significant modifications from the original Cado-Batch project:
+
+1. Rebranded from "Cado-Batch" to "Host Evidence Runner (HER)" to avoid 
+   trademark confusion with Cado Security's commercial products.
+
+2. Modernized PowerShell collector (source/collect.ps1) with:
+   - Enhanced artifact collection (Phase 1 & Phase 2 analysis)
+   - Robust bin path resolution supporting multiple deployment layouts
+   - SafeJoinPath helper to prevent array-to-string parameter binding errors
+   - Comprehensive logging and error handling
+   - Browser history collection (Chrome, Firefox, Edge)
+   - Prefetch, SRUM, Amcache analysis
+   - Suspicious scheduled task detection
+
+3. Added one-step launcher scripts:
+   - run-collector.ps1 (PowerShell launcher with robust path resolution)
+   - RUN_COLLECT.bat (Batch wrapper for restrictive environments)
+
+4. Created Build-Release.ps1:
+   - Automated release packaging
+   - Optional code signing support
+   - Single tools/bins copy with automatic resolution
+   - Generates HER-Collector.zip for distribution
+
+5. Sanitized all user-facing output to remove proprietary Cado branding 
+   while maintaining proper attribution in LICENSE and NOTICE files.
+
+6. Updated .gitignore to exclude generated release artifacts.
+
+7. Enhanced documentation:
+   - Comprehensive README with sysadmin deployment instructions
+   - Context.md for project governance and technical architecture
+   - Clear tool layout and path resolution documentation
+
+================================================================================
+ORIGINAL COPYRIGHT NOTICE (Cado-Batch)
+================================================================================
+
+Copyright 2020-2023 Cado Security Limited
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This project bundles the following third-party tools under their respective licenses:
+
+- RawCopy.exe: Licensed for forensic use (see tools/bins/RawCopy_LICENSE.md)
+- hashdeep/md5deep: Public domain (see tools/bins/hashdeep_LICENSE.txt)
+- Sysinternals Suite (sigcheck, strings): Microsoft Sysinternals License (see tools/bins/SysInternals_LICENSE.txt)
+- 7-Zip (zip.exe): GNU LGPL (see tools/bins/Zip_License.txt)

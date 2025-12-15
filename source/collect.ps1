@@ -43,7 +43,8 @@ function Write-Log {
 
 # Start logging
 Write-Log "============================================================================"
-Write-Log "Forensic Collection Tool - Collection Started"
+Write-Log "Host Evidence Runner (HER) - Collection Started"
+Write-Log "Derived from the archived Cado-Batch project; independently maintained"
 Write-Log "============================================================================"
 Write-Log "Computer: $computerName"
 Write-Log "User: $env:USERNAME"

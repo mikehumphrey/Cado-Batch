@@ -19,23 +19,37 @@ This project operates under the **Apache License 2.0**. Strict adherence to lice
 ## 3. Technical Architecture & Constraints
 
 ### 3.1. Language & Runtime
-*   **Language:** Windows Batch Script (`.bat` / `.cmd`).
+*   **Primary Language:** PowerShell (5.1+) for rich forensic collection capabilities.
+*   **Optional Wrapper:** Batch script (`RUN_COLLECT.bat`) for constrained environments.
 *   **Target OS:** Windows 7 through Windows 11 (including Server variants).
-*   **Dependencies:** Must remain "Dependency Free." Do not rely on PowerShell, Python, or.NET being installed unless the script verifies their existence first. Rely on bundled binaries in the `\resources` folder.
+*   **Dependencies:** PowerShell 5.1+ (built into Windows 10+). External tools bundled in `tools\bins` (RawCopy, hashdeep, sigcheck, strings, 7za).
 
 ### 3.2. Output Standardization
-*   **Dynamic Naming:** Output files must use the format `HER_%HOSTNAME%_%YYYY-MM-DD_HHMM%.zip` to prevent evidence collision in multi-host investigations.[7]
-*   **Logging:** All script actions (success/failure) must be logged to a local text file `acquisition_log.txt` within the output directory for auditability.
+*   **Output Directory:** `source/collected_files` containing all acquired artifacts.
+*   **Logging:** `source/logs/forensic_collection_<HOSTNAME>_<timestamp>.txt` with detailed timestamped entries.
+*   **Compression:** Final output as `collected_files.zip` for transfer/analysis.
+*   **Manifest:** SHA256 hash manifest (`SHA256_MANIFEST.txt`) for chain of custody when hashdeep.exe is available.
 
 ### 3.3. Directory Structure
 Host-Evidence-Runner/
-├── LICENSE                    (Apache 2.0 Text - DO NOT MODIFY)
+├── LICENSE                    (Apache 2.0 - DO NOT MODIFY)
+├── NOTICE                     (Attribution and modifications log)
 ├── README.md                  (Project Documentation)
-├── host_evidence_runner.bat   (Main Logic)
-├── docs/                      (Artifact documentation)
-└── resources/                 (External binaries)
-    ├── 7za.exe                (7-Zip CLI)
-    └── RawCopy.exe            (For locked files)
+├── run-collector.ps1          (One-step PowerShell launcher)
+├── RUN_COLLECT.bat            (Batch wrapper for restrictive environments)
+├── Build-Release.ps1          (Release packaging script)
+├── source/
+│   ├── collect.ps1            (Main collection logic)
+│   ├── collect.bat            (Legacy batch collector - optional)
+│   └── RUN_ME.bat             (Direct launcher from source)
+├── tools/
+│   └── bins/                  (External forensic binaries)
+│       ├── RawCopy.exe        (Locked file copy)
+│       ├── hashdeep.exe       (SHA256 manifest)
+│       ├── sigcheck.exe       (Signature verification)
+│       ├── strings.exe        (String extraction)
+│       └── zip.exe            (7-Zip compression)
+└── templates/                 (Metadata templates for investigations)
 
 ## 4. Forensic Artifact Objectives
 Copilot should assist in writing logic to collect the following high-value artifacts, prioritizing **Raw Copy** methods for locked files :

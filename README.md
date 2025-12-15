@@ -1,11 +1,13 @@
-# Cado Evidence Collector
+# Host Evidence Runner (HER)
 
-A PowerShell script to collect forensic evidence from modern Windows systems (Windows 10, Windows 11, Server 2016+). This script modernizes the functionality of the original `collect.bat`.
+A PowerShell-based forensic evidence collector for modern Windows systems (Windows 10, Windows 11, Server 2016+). Designed for rapid deployment from USB or network shares in incident response scenarios.
+
+**Origin:** Derived from the archived Cado-Batch project; independently maintained under Apache 2.0 license.
 
 ## Release Usage (sysadmin)
 
-1. Download or copy the latest `Cado-Batch-Collector.zip` (built via `Build-Release.ps1`).
-2. Extract to a working folder (e.g., `C:\temp\Cado-Batch` or a USB drive).
+1. Download or copy the latest `HER-Collector.zip` (built via `Build-Release.ps1`).
+2. Extract to a working folder (e.g., `C:\temp\HER-Collector` or a USB drive).
 3. Run `run-collector.ps1` as Administrator from the extracted root (or use `RUN_COLLECT.bat` if PowerShell execution policy is restrictive).
 4. The script writes output to `source\collected_files` and logs to `source\logs` within that extracted folder.
 
@@ -15,7 +17,7 @@ A PowerShell script to collect forensic evidence from modern Windows systems (Wi
 
 ### Building a release
 - From the repo root, run `pwsh -NoProfile -ExecutionPolicy Bypass -File .\Build-Release.ps1 -Zip`.
-- Output: `releases/<timestamp>/` plus `releases/Cado-Batch-Collector.zip`.
+- Output: `releases/<timestamp>/` plus `releases/HER-Collector.zip`.
 - Release artifacts in `releases/` are generated and ignored by git; commit the source scripts only.
 
 ## Data Collected

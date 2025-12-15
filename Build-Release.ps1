@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds a minimal release for sysadmins to run collection from USB or C:\temp.
+    Builds a minimal Host Evidence Runner (HER) release for sysadmins to run collection from USB or C:\temp.
 
 .DESCRIPTION
     Packages only the necessary artifacts to run `collect.ps1` locally:
@@ -17,7 +17,7 @@
     Destination folder for the release build artifacts (default: `releases/<timestamp>`)
 
 .PARAMETER Zip
-    Creates a zip file `Cado-Batch-Collector.zip` in `releases/` for easy transfer.
+    Creates a zip file `HER-Collector.zip` in `releases/` for easy transfer.
 
 .PARAMETER Sign
     Attempts to sign PowerShell scripts using an available Code Signing certificate.
@@ -93,7 +93,7 @@ if ($Sign) {
 
 # Optional: Create zip
 if ($Zip) {
-    $zipName = Join-Path (Join-Path $root 'releases') 'Cado-Batch-Collector.zip'
+    $zipName = Join-Path (Join-Path $root 'releases') 'HER-Collector.zip'
     if (-not (Test-Path (Split-Path $zipName -Parent))) { New-Item -ItemType Directory -Path (Split-Path $zipName -Parent) -Force | Out-Null }
     if (Test-Path $zipName) { Remove-Item $zipName -Force }
     Write-Host "Creating zip: $zipName" -ForegroundColor Cyan

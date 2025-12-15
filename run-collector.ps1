@@ -1,11 +1,13 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    One-step launcher for Cado-Batch collection from the release root.
+    One-step launcher for Host Evidence Runner (HER) collection from the release root.
 
 .DESCRIPTION
     Ensures execution from the script root and invokes `source\collect.ps1` with
     ExecutionPolicy Bypass. Designed for sysadmins running from USB or C:\temp.
+    
+    Derived from the archived Cado-Batch project; independently maintained.
 #>
 
 $ErrorActionPreference = 'Stop'
