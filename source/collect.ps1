@@ -1,9 +1,22 @@
 #Requires -RunAsAdministrator
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$RootPath
+)
 
 $ErrorActionPreference = 'Stop'
-$scriptPath = $PSScriptRoot
+
+# Determine script path and root
+if ($RootPath) {
+    # Use provided root (from run-collector.ps1)
+    $scriptRoot = Resolve-Path $RootPath
+    $scriptPath = Join-Path $scriptRoot 'source'
+} else {
+    # Fallback: running directly from source folder
+    $scriptPath = $PSScriptRoot
+    $scriptRoot = Split-Path -Parent $scriptPath
+}
 
 # ============================================================================
 # Initialize Logging
@@ -11,13 +24,17 @@ $scriptPath = $PSScriptRoot
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $computerName = $env:COMPUTERNAME
-$logFile = Join-Path $scriptPath "logs\forensic_collection_${computerName}_${timestamp}.txt"
 
-# Ensure logs directory exists
-$logsDir = Join-Path $scriptPath "logs"
-if (-not (Test-Path $logsDir)) {
-    New-Item -ItemType Directory -Path $logsDir | Out-Null
+# Create investigation folder structure: investigations/[HOSTNAME]/[TIMESTAMP]/
+$investigationsRoot = Join-Path $scriptRoot "investigations"
+$hostFolder = Join-Path $investigationsRoot $computerName
+$outputRoot = Join-Path $hostFolder $timestamp
+
+if (-not (Test-Path $outputRoot)) {
+    New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 }
+
+$logFile = Join-Path $outputRoot "forensic_collection_${computerName}_${timestamp}.txt"
 
 # Function to write log entries
 function Write-Log {
@@ -249,11 +266,11 @@ try {
     $hypervisor = Get-HypervisorInfo
     $serverRoles = Get-InstalledServerRoles
 
-    $outputDir = "collected_files"
+    $outputDir = Join-Path $outputRoot "collected_files"
     if (-not (Test-Path -Path $outputDir)) {
         Write-Verbose "Creating output directory: $outputDir"
         Write-Log "Creating output directory: $outputDir"
-        New-Item -ItemType Directory -Name $outputDir | Out-Null
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
     Write-Verbose "Collecting MFT and LogFile from C: drive"
@@ -284,7 +301,7 @@ try {
     $prefetchDir = Join-Path $env:SystemRoot "Prefetch"
     if (Test-Path $prefetchDir) {
         Write-Verbose "Collecting prefetch files from $prefetchDir"
-        Copy-Item -Path "$prefetchDir\*.pf" -Destination ".\$outputDir\Prefetch\" -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$prefetchDir\*.pf" -Destination "$outputDir\Prefetch\" -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host "Successfully collected prefetch files."
     }
 
@@ -300,7 +317,7 @@ try {
     Write-Verbose "Collecting Windows Search Index (Windows.db)..."
     $searchPath = Join-Path $env:LOCALAPPDATA "Microsoft\Windows Search\Data\Applications\Windows\Windows.db"
     if (Test-Path $searchPath) {
-        Copy-Item -Path $searchPath -Destination ".\$outputDir\" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path $searchPath -Destination "$outputDir\" -Force -ErrorAction SilentlyContinue
         Write-Host "Successfully collected Windows Search Index."
     }
 
@@ -308,7 +325,7 @@ try {
     Write-Verbose "Collecting HOSTS file..."
     $hostsPath = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
     if (Test-Path $hostsPath) {
-        Copy-Item -Path $hostsPath -Destination ".\$outputDir\" -Force
+        Copy-Item -Path $hostsPath -Destination "$outputDir\" -Force
         Write-Host "Successfully collected HOSTS file."
     }
 
@@ -316,7 +333,7 @@ try {
     Write-Verbose "Collecting Recycle Bin metadata..."
     $recycleDir = Join-Path $env:SystemDrive '$Recycle.Bin'
     if (Test-Path $recycleDir) {
-        robocopy $recycleDir ".\$outputDir\RecycleBin" /E /R:1 /W:1 | Out-Null
+        robocopy $recycleDir "$outputDir\RecycleBin" /E /R:1 /W:1 | Out-Null
         Write-Host "Successfully collected Recycle Bin data."
     }
 
@@ -324,7 +341,7 @@ try {
     Write-Verbose "Collecting Windows Temp directory..."
     $winTempPath = Join-Path $env:SystemRoot "Temp"
     if (Test-Path $winTempPath) {
-        robocopy $winTempPath ".\$outputDir\Windows_Temp" /E /R:1 /W:1 | Out-Null
+        robocopy $winTempPath "$outputDir\Windows_Temp" /E /R:1 /W:1 | Out-Null
         Write-Host "Successfully collected Windows Temp files."
     }
 
@@ -332,7 +349,7 @@ try {
     $amcachePath = Join-Path $env:SystemRoot "appcompat\Programs\Amcache.hve"
     if (Test-Path $amcachePath) {
         Write-Verbose "Collecting Amcache.hve"
-        Copy-Item -Path $amcachePath -Destination ".\$outputDir\" -Force
+        Copy-Item -Path $amcachePath -Destination "$outputDir\" -Force
         Write-Host "Successfully collected Amcache.hve."
     }
 
@@ -340,7 +357,7 @@ try {
     $srumPath = Join-Path $env:SystemRoot "System32\sru\SRUDB.dat"
     if (Test-Path $srumPath) {
         Write-Verbose "Collecting SRUM database (SRUDB.dat)"
-        robocopy (Split-Path $srumPath) ".\$outputDir" (Split-Path $srumPath -Leaf) /R:1 /W:1 | Out-Null
+        robocopy (Split-Path $srumPath) "$outputDir" (Split-Path $srumPath -Leaf) /R:1 /W:1 | Out-Null
         Write-Host "Successfully collected SRUM database."
     }
 
@@ -526,9 +543,9 @@ try {
             Write-Verbose "  - Running sigcheck.exe on collected executables"
             
             # Find all .exe files in collected artifacts
-            $exeFiles = Get-ChildItem -Path ".\$outputDir" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue
+            $exeFiles = Get-ChildItem -Path "$outputDir" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue
             if ($exeFiles) {
-                & $sigcheckPath -nobanner -accepteula $exeFiles.FullName | Out-File -FilePath ".\$outputDir\ExecutableSignatures.txt" -ErrorAction Stop
+                & $sigcheckPath -nobanner -accepteula $exeFiles.FullName | Out-File -FilePath "$outputDir\ExecutableSignatures.txt" -ErrorAction Stop
                 Write-Host "Successfully verified executable signatures."
                 Write-Log "Executable signatures verified: $outputDir\ExecutableSignatures.txt"
             } else {
@@ -938,7 +955,7 @@ try {
     # Compression and Finalization
     # ============================================================================
     
-    $zipFile = "collected_files.zip"
+    $zipFile = Join-Path $outputRoot "collected_files.zip"
     if (Test-Path $zipFile) {
         Remove-Item $zipFile
     }

@@ -38,7 +38,7 @@ if (-not (Test-Path $collect)) {
 Write-Host "Starting collection from: $root" -ForegroundColor Cyan
 
 try {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $collect -Verbose
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $collect -RootPath $root -Verbose
     $exitCode = $LASTEXITCODE
 } catch {
     Write-Host "Collection failed: $_" -ForegroundColor Red

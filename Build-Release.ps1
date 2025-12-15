@@ -4,12 +4,12 @@
 
 .DESCRIPTION
     Packages only the necessary artifacts to run `collect.ps1` locally:
-    - `source/collect.ps1`
-    - `source/collect.bat` and `source/RUN_ME.bat` (optional helpers)
-    - `tools/bins/*` (Phase 1 tools used by collect.ps1; collect resolves this path automatically)
-    - `README.md` (quick reference)
-    - `templates/*` (metadata templates if collect references them)
-    Excludes investigations, optional tools, and analysis modules.
+    - `run-collector.ps1` and `RUN_COLLECT.bat` (launchers at root)
+    - `source/collect.ps1` (main collection script)
+    - `tools/bins/*` (forensic tools used by collect.ps1; auto-resolved)
+    - `templates/*` (metadata templates for investigations)
+    - `README.md` (quick reference and usage guide)
+    Excludes investigations, optional tools, analysis modules, and legacy scripts.
 
     Optionally signs scripts if a Code Signing certificate is available.
 
@@ -49,8 +49,6 @@ $layout = @(
     @{ src = Join-Path $root 'run-collector.ps1';         dest = Join-Path $OutputDir 'run-collector.ps1' },
     @{ src = Join-Path $root 'RUN_COLLECT.bat';           dest = Join-Path $OutputDir 'RUN_COLLECT.bat' },
     @{ src = Join-Path $root 'source\collect.ps1';            dest = Join-Path $OutputDir 'source\collect.ps1' },
-    @{ src = Join-Path $root 'source\collect.bat';            dest = Join-Path $OutputDir 'source\collect.bat' },
-    @{ src = Join-Path $root 'source\RUN_ME.bat';             dest = Join-Path $OutputDir 'source\RUN_ME.bat' },
     @{ src = Join-Path $root 'tools\bins';                    dest = Join-Path $OutputDir 'tools\bins' },
     @{ src = Join-Path $root 'templates';                      dest = Join-Path $OutputDir 'templates' },
     @{ src = Join-Path $root 'README.md';                      dest = Join-Path $OutputDir 'README.md' }
