@@ -510,6 +510,182 @@ try {
         Write-Warning "Could not find the collected USN Journal. RawCopy may have failed."
     }
 
+    # ============================================================================
+    # Domain Controller & Server Role Specific Artifacts
+    # ============================================================================
+    
+    Write-Verbose "Collecting Domain Controller and server role-specific artifacts..."
+    Write-Log "Collecting server role-specific artifacts based on detected features"
+    
+    # Active Directory Database (NTDS.dit) - Critical for DC investigations
+    if ($serverRoles -like "*Active Directory*") {
+        Write-Verbose "  - Collecting Active Directory artifacts..."
+        Write-Log "Active Directory Domain Services detected - collecting AD artifacts"
+        
+        try {
+            # Collect NTDS.dit using RawCopy (database is locked)
+            $ntdsPath = "C:\Windows\NTDS\ntds.dit"
+            if (Test-Path $ntdsPath) {
+                Write-Log "  - Attempting to copy NTDS.dit (Active Directory database)"
+                $rawCopyPath = Get-BinFile 'RawCopy.exe'
+                & $rawCopyPath /FileNamePath:$ntdsPath /OutputPath:"$outputDir\ActiveDirectory" | Out-Null
+                Write-Host "Successfully collected Active Directory database (NTDS.dit)." -ForegroundColor Green
+                Add-CollectionResult -ItemName "Active Directory Database (NTDS.dit)" -Status Success
+            }
+            
+            # Collect AD log files
+            $ntdsLogPath = "C:\Windows\NTDS"
+            if (Test-Path $ntdsLogPath) {
+                robocopy $ntdsLogPath "$outputDir\ActiveDirectory\Logs" *.log /R:1 /W:1 | Out-Null
+                Write-Log "  - Collected AD transaction logs"
+            }
+            
+            # Collect SYSVOL (Group Policy and logon scripts)
+            $sysvolPath = "C:\Windows\SYSVOL\sysvol"
+            if (Test-Path $sysvolPath) {
+                Write-Log "  - Collecting SYSVOL (Group Policy objects)"
+                robocopy $sysvolPath "$outputDir\SYSVOL" /E /R:1 /W:1 /XD "Staging Areas" | Out-Null
+                Write-Host "Successfully collected SYSVOL (Group Policies)." -ForegroundColor Green
+            }
+            
+        } catch {
+            Write-Log "Warning: Could not collect some AD artifacts: $_" -Level Warning
+            Add-CollectionResult -ItemName "Active Directory Artifacts" -Status Warning -Message "Partial collection: $_"
+        }
+    }
+    
+    # DNS Server logs and zones
+    if ($serverRoles -like "*DNS*") {
+        Write-Verbose "  - Collecting DNS Server artifacts..."
+        Write-Log "DNS Server detected - collecting DNS logs and zone files"
+        
+        try {
+            # DNS debug log
+            $dnsLogPath = "C:\Windows\System32\dns\dns.log"
+            if (Test-Path $dnsLogPath) {
+                Copy-Item -Path $dnsLogPath -Destination "$outputDir\DNS\" -Force -ErrorAction SilentlyContinue
+                Write-Log "  - Collected DNS debug log"
+            }
+            
+            # DNS zone files
+            $dnsZonePath = "C:\Windows\System32\dns"
+            if (Test-Path $dnsZonePath) {
+                robocopy $dnsZonePath "$outputDir\DNS\Zones" *.dns /R:1 /W:1 | Out-Null
+                Write-Log "  - Collected DNS zone files"
+                Write-Host "Successfully collected DNS logs and zones." -ForegroundColor Green
+                Add-CollectionResult -ItemName "DNS Server Data" -Status Success
+            }
+        } catch {
+            Write-Log "Warning: Could not collect DNS artifacts: $_" -Level Warning
+        }
+    }
+    
+    # DHCP Server leases and logs
+    if ($serverRoles -like "*DHCP*") {
+        Write-Verbose "  - Collecting DHCP Server artifacts..."
+        Write-Log "DHCP Server detected - collecting DHCP database and logs"
+        
+        try {
+            $dhcpPath = "C:\Windows\System32\dhcp"
+            if (Test-Path $dhcpPath) {
+                robocopy $dhcpPath "$outputDir\DHCP" *.mdb *.log *.txt /R:1 /W:1 | Out-Null
+                Write-Host "Successfully collected DHCP leases and logs." -ForegroundColor Green
+                Write-Log "  - Collected DHCP database and logs"
+                Add-CollectionResult -ItemName "DHCP Server Data" -Status Success
+            }
+        } catch {
+            Write-Log "Warning: Could not collect DHCP artifacts: $_" -Level Warning
+        }
+    }
+    
+    # IIS Web Server logs and configuration
+    if ($serverRoles -like "*IIS*" -or $serverRoles -like "*Web*") {
+        Write-Verbose "  - Collecting IIS Web Server artifacts..."
+        Write-Log "IIS Web Server detected - collecting web logs and configuration"
+        
+        try {
+            # IIS logs
+            $iisLogPath = "C:\inetpub\logs\LogFiles"
+            if (Test-Path $iisLogPath) {
+                robocopy $iisLogPath "$outputDir\IIS\Logs" /E /R:1 /W:1 /MAXAGE:90 | Out-Null
+                Write-Log "  - Collected IIS web logs (last 90 days)"
+            }
+            
+            # IIS configuration
+            $iisConfigPath = "C:\Windows\System32\inetsrv\config"
+            if (Test-Path $iisConfigPath) {
+                robocopy $iisConfigPath "$outputDir\IIS\Config" /E /R:1 /W:1 | Out-Null
+                Write-Log "  - Collected IIS configuration files"
+            }
+            
+            Write-Host "Successfully collected IIS logs and configuration." -ForegroundColor Green
+            Add-CollectionResult -ItemName "IIS Web Server Data" -Status Success
+        } catch {
+            Write-Log "Warning: Could not collect IIS artifacts: $_" -Level Warning
+        }
+    }
+    
+    # Hyper-V Virtual Machine configuration
+    if ($serverRoles -like "*Hyper-V*") {
+        Write-Verbose "  - Collecting Hyper-V configuration..."
+        Write-Log "Hyper-V detected - collecting VM configuration files"
+        
+        try {
+            # VM configuration files
+            $hvConfigPath = "C:\ProgramData\Microsoft\Windows\Hyper-V"
+            if (Test-Path $hvConfigPath) {
+                robocopy $hvConfigPath "$outputDir\HyperV\Config" /E /R:1 /W:1 /XF *.vhdx *.vhd *.avhdx | Out-Null
+                Write-Log "  - Collected Hyper-V VM configurations"
+            }
+            
+            # Hyper-V event logs (already collected in EVTX, but note it)
+            Write-Log "  - Hyper-V logs included in EVTX collection"
+            Write-Host "Successfully collected Hyper-V configuration." -ForegroundColor Green
+            Add-CollectionResult -ItemName "Hyper-V Configuration" -Status Success
+        } catch {
+            Write-Log "Warning: Could not collect Hyper-V artifacts: $_" -Level Warning
+        }
+    }
+    
+    # DFS Replication database
+    if ($serverRoles -like "*DFS*") {
+        Write-Verbose "  - Collecting DFS Replication artifacts..."
+        Write-Log "DFS detected - collecting replication database"
+        
+        try {
+            $dfsPath = "C:\System Volume Information\DFSR"
+            if (Test-Path $dfsPath) {
+                robocopy $dfsPath "$outputDir\DFS" /E /R:1 /W:1 /XF *.edb | Out-Null
+                Write-Log "  - Collected DFS replication metadata"
+                Write-Host "Successfully collected DFS artifacts." -ForegroundColor Green
+                Add-CollectionResult -ItemName "DFS Replication Data" -Status Success
+            }
+        } catch {
+            Write-Log "Warning: Could not collect DFS artifacts: $_" -Level Warning
+        }
+    }
+    
+    # Print Server logs
+    if ($serverRoles -like "*Print*") {
+        Write-Verbose "  - Collecting Print Server artifacts..."
+        Write-Log "Print Server detected - collecting print logs"
+        
+        try {
+            # Print queue and spool files metadata (not the actual spool files - too large)
+            $printLogPath = "C:\Windows\System32\spool\PRINTERS"
+            if (Test-Path $printLogPath) {
+                Get-ChildItem -Path $printLogPath -Recurse -File -ErrorAction SilentlyContinue | 
+                    Select-Object Name, FullName, Length, CreationTime, LastWriteTime | 
+                    Export-Csv -Path "$outputDir\PrintServer_SpoolFiles.csv" -NoTypeInformation
+                Write-Log "  - Collected print spool metadata"
+                Write-Host "Successfully collected Print Server metadata." -ForegroundColor Green
+                Add-CollectionResult -ItemName "Print Server Metadata" -Status Success
+            }
+        } catch {
+            Write-Log "Warning: Could not collect Print Server artifacts: $_" -Level Warning
+        }
+    }
+
     Write-Verbose "Collecting user-specific artifacts for all profiles..."
     $userProfiles = Get-ChildItem -Path "$env:SystemDrive\Users" -Directory | Where-Object { $_.Name -notin @("Default", "Public", "All Users") }
     foreach ($user in $userProfiles) {

@@ -1,38 +1,65 @@
 <#
 .SYNOPSIS
-    A runner script to perform post-collection analysis on Cado-Batch investigations.
+    Comprehensive post-collection analysis for Host Evidence Runner (HER) investigations.
 .DESCRIPTION
     This script imports the CadoBatchAnalysis module and executes analysis functions
-    against a specified investigation's collected data. Supports Yara scanning for
-    sensitive files and event log parsing with EvtxECmd.
+    against collected forensic artifacts. Supports analysis of:
+    - Windows Event Logs (Security, System, Application, etc.)
+    - Master File Table (MFT) and file system timeline
+    - Registry hives (SYSTEM, SOFTWARE, SAM, SECURITY, user hives)
+    - Prefetch files (program execution history)
+    - Browser history (Chrome, Edge, Firefox)
+    - Active Directory artifacts (NTDS.dit, SYSVOL if collected)
+    - Network artifacts (RDP history, USB devices, WiFi profiles)
+    - Yara scanning for IOCs or sensitive files
 .PARAMETER InvestigationPath
     The full path to a specific investigation timestamp folder 
     (e.g., .\investigations\Case_123\SERVER01\20251212_143022).
 .PARAMETER YaraInputFile
-    (Optional) The path to the CSV file containing the sensitive file information
-    for the Yara scan. Must have 'FileName' and 'SHA256Hash' columns.
+    (Optional) CSV file with sensitive file information for Yara scanning.
+    Must have 'FileName' and 'SHA256Hash' columns.
 .PARAMETER ParseEventLogs
-    (Optional) Switch to enable parsing of Windows Event Logs (.evtx files) using EvtxECmd.
+    Parse Windows Event Logs (.evtx files) using EvtxECmd to CSV/JSON.
+.PARAMETER ParseMFT
+    Parse Master File Table ($MFT) using MFTECmd for file system timeline.
+.PARAMETER ParsePrefetch
+    Parse Prefetch files using PECmd for program execution history.
+.PARAMETER ParseRegistry
+    Parse registry hives using RECmd for system and user configuration.
+.PARAMETER AnalyzeBrowserHistory
+    Extract and analyze browser history from collected artifacts.
+.PARAMETER AnalyzeActiveDirectory
+    Analyze AD artifacts (NTDS.dit, SYSVOL) if available.
+.PARAMETER AnalyzeNetworkArtifacts
+    Extract network configuration, RDP history, USB devices, WiFi profiles.
+.PARAMETER FullAnalysis
+    Run all available analysis modules on the investigation.
 .PARAMETER EventLogFormat
-    (Optional) Output format for parsed event logs. Options: 'csv', 'json', 'both'. Default is 'csv'.
+    Output format for parsed event logs: 'csv', 'json', or 'both'. Default: 'csv'.
 .EXAMPLE
-    # Run Yara scan only
-    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\MyCase\MyServer\20251212_103000" -YaraInputFile ".\sensitive_files.csv"
+    # Full analysis of all collected artifacts
+    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\Case\Host\20251215_120000" -FullAnalysis
 .EXAMPLE
-    # Parse event logs only
-    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\MyCase\MyServer\20251212_103000" -ParseEventLogs
+    # Parse only event logs and MFT
+    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\Case\Host\20251215_120000" -ParseEventLogs -ParseMFT
 .EXAMPLE
-    # Run both Yara scan and event log parsing
-    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\MyCase\MyServer\20251212_103000" -YaraInputFile ".\sensitive_files.csv" -ParseEventLogs -EventLogFormat both
+    # Search event logs with keywords and analyze network artifacts
+    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\Case\Host\20251215_120000" `
+        -ParseEventLogs -SearchKeywordsFile "iocs.txt" -AnalyzeNetworkArtifacts
+.EXAMPLE
+    # Yara scan with custom rule file
+    .\source\Analyze-Investigation.ps1 -InvestigationPath ".\investigations\Case\Host\20251215_120000" -YaraInputFile ".\sensitive_files.csv"
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
     [string]$InvestigationPath,
 
+    # Scanning & IOC Detection
     [Parameter(Mandatory=$false)]
     [string]$YaraInputFile,
     
+    # Event Log Analysis
     [Parameter(Mandatory=$false)]
     [switch]$ParseEventLogs,
     
@@ -52,18 +79,52 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$DetectSuspiciousPatterns,
     
+    # File System Analysis
+    [Parameter(Mandatory=$false)]
+    [switch]$ParseMFT,
+    
     [Parameter(Mandatory=$false)]
     [string[]]$SearchMFTPaths,
     
     [Parameter(Mandatory=$false)]
-    [string]$SearchMFTPathsFile
-    ,
+    [string]$SearchMFTPathsFile,
+    
+    # Program Execution Analysis
     [Parameter(Mandatory=$false)]
-    [switch]$GenerateReport
-    ,
-    [Parameter(Mandatory=$false)] [string]$CasePath,
-    [Parameter(Mandatory=$false)] [string]$HostPath,
-    [Parameter(Mandatory=$false)] [string]$CollectionPath
+    [switch]$ParsePrefetch,
+    
+    # Registry Analysis
+    [Parameter(Mandatory=$false)]
+    [switch]$ParseRegistry,
+    
+    # Browser & User Activity
+    [Parameter(Mandatory=$false)]
+    [switch]$AnalyzeBrowserHistory,
+    
+    # Domain Controller Artifacts
+    [Parameter(Mandatory=$false)]
+    [switch]$AnalyzeActiveDirectory,
+    
+    # Network Artifacts
+    [Parameter(Mandatory=$false)]
+    [switch]$AnalyzeNetworkArtifacts,
+    
+    # Comprehensive Analysis
+    [Parameter(Mandatory=$false)]
+    [switch]$FullAnalysis,
+    
+    # Reporting
+    [Parameter(Mandatory=$false)]
+    [switch]$GenerateReport,
+    
+    [Parameter(Mandatory=$false)] 
+    [string]$CasePath,
+    
+    [Parameter(Mandatory=$false)] 
+    [string]$HostPath,
+    
+    [Parameter(Mandatory=$false)] 
+    [string]$CollectionPath
 )
 
 # Construct the full path to the module
@@ -82,18 +143,37 @@ catch {
 
 # --- Execute Analysis Functions ---
 
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "Host Evidence Runner (HER) - Analysis" -ForegroundColor Cyan
+Write-Host "========================================`n" -ForegroundColor Cyan
+
+# If FullAnalysis specified, enable all modules
+if ($FullAnalysis) {
+    Write-Host "⚡ Full Analysis Mode Enabled" -ForegroundColor Yellow
+    $ParseEventLogs = $true
+    $ParseMFT = $true
+    $ParsePrefetch = $true
+    $ParseRegistry = $true
+    $AnalyzeBrowserHistory = $true
+    $AnalyzeNetworkArtifacts = $true
+    $AnalyzeActiveDirectory = $true
+    $GenerateReport = $true
+}
+
+# Yara Scanning (IOC Detection)
 if ($YaraInputFile) {
-    Write-Host "`nStarting Yara Scan Workflow..." -ForegroundColor Yellow
+    Write-Host "`n🔍 Starting Yara Scan Workflow..." -ForegroundColor Yellow
     Invoke-YaraScan -InvestigationPath $InvestigationPath -YaraInputFile $YaraInputFile
 }
 
+# Event Log Analysis
 if ($ParseEventLogs) {
-    Write-Host "`nStarting Event Log Parsing..." -ForegroundColor Yellow
+    Write-Host "`n📋 Parsing Windows Event Logs..." -ForegroundColor Yellow
     Invoke-EventLogParsing -InvestigationPath $InvestigationPath -OutputFormat $EventLogFormat
 }
 
 if ($SearchKeywords -or $SearchKeywordsFile -or $FilterEventIDs -or $DetectSuspiciousPatterns) {
-    Write-Host "`nSearching Event Log Data..." -ForegroundColor Yellow
+    Write-Host "`n🔎 Searching Event Log Data..." -ForegroundColor Yellow
     
     # Load keywords from file if specified
     $keywordsToSearch = @()
@@ -119,8 +199,14 @@ if ($SearchKeywords -or $SearchKeywordsFile -or $FilterEventIDs -or $DetectSuspi
     Search-EventLogData @searchParams
 }
 
+# File System Analysis (MFT)
+if ($ParseMFT) {
+    Write-Host "`n💾 Parsing Master File Table (MFT)..." -ForegroundColor Yellow
+    Invoke-MFTParsing -InvestigationPath $InvestigationPath
+}
+
 if ($SearchMFTPaths -or $SearchMFTPathsFile) {
-    Write-Host "`nSearching MFT for file paths..." -ForegroundColor Yellow
+    Write-Host "`n🔍 Searching MFT for file paths..." -ForegroundColor Yellow
     $mftParams = @{
         InvestigationPath = $InvestigationPath
     }
@@ -130,8 +216,39 @@ if ($SearchMFTPaths -or $SearchMFTPathsFile) {
     Search-MFTForPaths @mftParams
 }
 
+# Program Execution Analysis
+if ($ParsePrefetch) {
+    Write-Host "`n⚡ Analyzing Prefetch Files..." -ForegroundColor Yellow
+    Invoke-PrefetchAnalysis -InvestigationPath $InvestigationPath
+}
+
+# Registry Analysis
+if ($ParseRegistry) {
+    Write-Host "`n📝 Parsing Registry Hives..." -ForegroundColor Yellow
+    Invoke-RegistryAnalysis -InvestigationPath $InvestigationPath
+}
+
+# Browser & User Activity
+if ($AnalyzeBrowserHistory) {
+    Write-Host "`n🌐 Analyzing Browser History..." -ForegroundColor Yellow
+    Invoke-BrowserAnalysis -InvestigationPath $InvestigationPath
+}
+
+# Domain Controller Artifacts
+if ($AnalyzeActiveDirectory) {
+    Write-Host "`n🏢 Analyzing Active Directory Artifacts..." -ForegroundColor Yellow
+    Invoke-ADAnalysis -InvestigationPath $InvestigationPath
+}
+
+# Network Artifacts
+if ($AnalyzeNetworkArtifacts) {
+    Write-Host "`n🌐 Analyzing Network Artifacts..." -ForegroundColor Yellow
+    Invoke-NetworkAnalysis -InvestigationPath $InvestigationPath
+}
+
+# Generate Summary Reports
 if ($GenerateReport) {
-    Write-Host "`nGenerating report summaries..." -ForegroundColor Yellow
+    Write-Host "`n📊 Generating Summary Reports..." -ForegroundColor Yellow
     $repParams = @{}
     if ($InvestigationPath) { $repParams['InvestigationPath'] = $InvestigationPath }
     if ($CasePath) { $repParams['CasePath'] = $CasePath }
@@ -140,16 +257,47 @@ if ($GenerateReport) {
     Generate-Reports @repParams
 }
 
-if (-not $YaraInputFile -and -not $ParseEventLogs -and -not $SearchKeywords -and -not $SearchKeywordsFile -and -not $FilterEventIDs -and -not $DetectSuspiciousPatterns -and -not $SearchMFTPaths -and -not $SearchMFTPathsFile -and -not $GenerateReport) {
-    Write-Warning "No analysis operations specified. Available options:`n" +
-                  "  -YaraInputFile: Scan for sensitive files`n" +
-                  "  -ParseEventLogs: Parse Windows event logs`n" +
-                  "  -SearchKeywords: Search event logs for keywords`n" +
-                  "  -SearchKeywordsFile: Load keywords from text file (one per line)`n" +
-                  "  -FilterEventIDs: Filter by specific Event IDs`n" +
-                  "  -DetectSuspiciousPatterns: Find suspicious commands/patterns`n" +
-                  "  -SearchMFTPaths/-SearchMFTPathsFile: Search the MFT for file paths`n" +
-                  "  -GenerateReport: Write summaries (supports -CasePath, -HostPath, -CollectionPath)"
+# Display help if no options specified
+if (-not $YaraInputFile -and -not $ParseEventLogs -and -not $ParseMFT -and -not $ParsePrefetch -and 
+    -not $ParseRegistry -and -not $AnalyzeBrowserHistory -and -not $AnalyzeActiveDirectory -and 
+    -not $AnalyzeNetworkArtifacts -and -not $SearchKeywords -and -not $SearchKeywordsFile -and 
+    -not $FilterEventIDs -and -not $DetectSuspiciousPatterns -and -not $SearchMFTPaths -and 
+    -not $SearchMFTPathsFile -and -not $GenerateReport -and -not $FullAnalysis) {
+    
+    Write-Host "`n⚠️  No analysis operations specified.`n" -ForegroundColor Yellow
+    Write-Host "Available Analysis Modules:" -ForegroundColor Cyan
+    Write-Host "  -FullAnalysis                : Run all available analysis modules" -ForegroundColor White
+    Write-Host "`nFile System:" -ForegroundColor Cyan
+    Write-Host "  -ParseMFT                    : Parse Master File Table for timeline" -ForegroundColor White
+    Write-Host "  -SearchMFTPaths              : Search MFT for specific file paths" -ForegroundColor White
+    Write-Host "  -SearchMFTPathsFile          : Load search paths from file" -ForegroundColor White
+    Write-Host "`nEvent Logs:" -ForegroundColor Cyan
+    Write-Host "  -ParseEventLogs              : Parse Windows event logs to CSV/JSON" -ForegroundColor White
+    Write-Host "  -SearchKeywords              : Search event logs for keywords" -ForegroundColor White
+    Write-Host "  -SearchKeywordsFile          : Load keywords from text file" -ForegroundColor White
+    Write-Host "  -FilterEventIDs              : Filter by specific Event IDs" -ForegroundColor White
+    Write-Host "  -DetectSuspiciousPatterns    : Find suspicious commands/patterns" -ForegroundColor White
+    Write-Host "`nProgram Execution:" -ForegroundColor Cyan
+    Write-Host "  -ParsePrefetch               : Analyze prefetch files for execution history" -ForegroundColor White
+    Write-Host "`nRegistry:" -ForegroundColor Cyan
+    Write-Host "  -ParseRegistry               : Parse registry hives for configuration" -ForegroundColor White
+    Write-Host "`nUser Activity:" -ForegroundColor Cyan
+    Write-Host "  -AnalyzeBrowserHistory       : Extract and analyze browser history" -ForegroundColor White
+    Write-Host "`nNetwork:" -ForegroundColor Cyan
+    Write-Host "  -AnalyzeNetworkArtifacts     : Extract network config, RDP, USB, WiFi" -ForegroundColor White
+    Write-Host "`nDomain Controller:" -ForegroundColor Cyan
+    Write-Host "  -AnalyzeActiveDirectory      : Analyze AD artifacts (NTDS, SYSVOL)" -ForegroundColor White
+    Write-Host "`nThreat Detection:" -ForegroundColor Cyan
+    Write-Host "  -YaraInputFile               : Scan for sensitive files or IOCs" -ForegroundColor White
+    Write-Host "`nReporting:" -ForegroundColor Cyan
+    Write-Host "  -GenerateReport              : Generate summary reports" -ForegroundColor White
+    Write-Host "`nExamples:" -ForegroundColor Cyan
+    Write-Host "  # Full analysis of all artifacts" -ForegroundColor Gray
+    Write-Host "  .\Analyze-Investigation.ps1 -InvestigationPath '.\investigations\Case\Host\20251215' -FullAnalysis`n" -ForegroundColor Gray
+    Write-Host "  # Parse event logs and search for keywords" -ForegroundColor Gray
+    Write-Host "  .\Analyze-Investigation.ps1 -InvestigationPath '.\investigations\Case\Host\20251215' -ParseEventLogs -SearchKeywordsFile 'iocs.txt'`n" -ForegroundColor Gray
+    Write-Host "  # Analyze file system and program execution" -ForegroundColor Gray
+    Write-Host "  .\Analyze-Investigation.ps1 -InvestigationPath '.\investigations\Case\Host\20251215' -ParseMFT -ParsePrefetch`n" -ForegroundColor Gray
 }
 
-Write-Host "`nAnalysis complete." -ForegroundColor Green
+Write-Host "`n✅ Analysis complete.`n" -ForegroundColor Green

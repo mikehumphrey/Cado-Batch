@@ -8,7 +8,16 @@
     ExecutionPolicy Bypass. Designed for sysadmins running from USB or C:\temp.
     
     Derived from the archived Cado-Batch project; independently maintained.
+
+.PARAMETER NoZip
+    Skip compression of collected files. Useful for large collections (>4GB) to save time.
 #>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false)]
+    [switch]$NoZip
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -68,9 +77,17 @@ if ($executionPolicy -eq 'Restricted' -or $systemPolicy -eq 'Restricted' -or
 }
 
 Write-Host "Starting collection from: $root" -ForegroundColor Cyan
+if ($NoZip) {
+    Write-Host "Compression will be skipped (-NoZip parameter)" -ForegroundColor Yellow
+}
 
 try {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $collect -RootPath $root -Verbose
+    $collectArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $collect, '-RootPath', $root, '-Verbose')
+    if ($NoZip) {
+        $collectArgs += '-NoZip'
+    }
+    
+    & powershell @collectArgs
     $exitCode = $LASTEXITCODE
 } catch {
     Write-Host "Collection failed: $_" -ForegroundColor Red

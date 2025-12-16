@@ -1,53 +1,77 @@
-# 🎉 DEPLOYMENT COMPLETE - Summary of Deliverables
+# 🎯 Host Evidence Runner (HER) - Start Here
 
-**Date:** December 12, 2025  
-**Status:** ✅ PRODUCTION READY  
-**Version:** 1.0
+**Version:** 1.0.0  
+**Last Updated:** December 15, 2025  
+**Status:** ✅ PRODUCTION READY
 
 ---
 
-## What You Now Have
+## What is HER?
 
-A **complete, end-to-end forensic collection solution** for Windows Servers that:
+**Host Evidence Runner (HER)** is a comprehensive forensic evidence collection and analysis toolkit for Windows systems (Windows 10, 11, Server 2016+). Designed for rapid deployment in incident response scenarios.
 
-### ✅ For Sysadmins (Your Customers)
-- **Simple to use:** Just double-click and wait
-- **No technical knowledge required:** Guides do the explaining
-- **Clear feedback:** Progress window shows what's happening
-- **Error handling:** Helpful messages if anything goes wrong
-- **Works offline:** USB deployment, no WinRM needed
+### Key Capabilities
 
-### ✅ For You (The Analyst)
-- **Comprehensive artifacts:** Everything needed for forensic analysis
-- **Automatic role detection:** AD/DC, DNS, DFS, CA detected automatically
-- **Hypervisor support:** Works on vSphere, Hyper-V, physical servers
-- **Detailed logging:** All operations captured for troubleshooting
-- **Organized output:** Structured directory layout ready for analysis
-- **Complete documentation:** Guides for every scenario
+A **complete, end-to-end forensic collection and analysis solution** that:
+
+### ✅ For System Administrators
+- **Simple USB deployment:** Copy to USB, double-click, wait for completion
+- **No technical knowledge required:** Clear on-screen instructions
+- **Works offline:** No network connectivity or WinRM needed
+- **Safe operation:** Read-only collection, no system modifications
+- **Clear error handling:** Helpful messages if issues occur
+
+### ✅ For Forensic Analysts
+- **Comprehensive artifacts:** 50+ data sources covering system, user, and network activity
+- **Automatic detection:** Server roles (AD, DNS, DHCP, IIS, Hyper-V, DFS, Print) detected and collected
+- **Advanced analysis:** Built-in modules for event logs, MFT, registry, prefetch, browser history
+- **Timeline reconstruction:** Multiple artifact types for complete timeline
+- **Chain of custody:** SHA256 manifests, detailed logging, timestamps
+- **Flexible analysis:** Full analysis mode or targeted module execution
 
 ### ✅ For Enterprise Deployment
-- **Scalable:** Can deploy to multiple servers
-- **Auditable:** Complete log trail of operations
-- **Safe:** Read-only operations, no system modifications
-- **Reliable:** Graceful error handling, partial collection preserved
-- **Forensically sound:** Proper artifact collection methods
+- **Multi-host capable:** Deploy to multiple servers simultaneously
+- **Role-aware collection:** Specialized artifacts for Domain Controllers and server roles
+- **Hypervisor compatible:** Works on VMware vSphere, Hyper-V, physical hardware
+- **Scalable:** Handles servers from workstations to enterprise DCs
+- **Auditable:** Complete log trail with success rates and error details
+- **Forensically sound:** Industry-standard tools (RawCopy, hashdeep, Zimmerman tools)
 
 ---
 
-## 📦 Deliverables (16 Files)
+## 📂 Project Structure
 
-### Core Execution Files
 ```
-✅ RUN_ME.bat                    (User launcher - 23 KB)
-✅ collect.ps1                   (Main script - 18 KB + enhanced with logging)
-✅ bins/RawCopy.exe              (File extraction utility)
-✅ LICENSE                       (Apache 2.0 License)
-```
-
-### User-Facing Guides (Sysadmins)
-```
-✅ QUICK_START.txt               (1-page quick guide - Print this first!)
-✅ SYSADMIN_DEPLOYMENT_GUIDE.md  (Complete deployment guide - 18 KB)
+HER/
+├── 00_START_HERE.md              ← You are here
+├── README.md                     ← Main project documentation
+│
+├── run-collector.ps1             ← Main collection launcher
+├── RUN_COLLECT.bat               ← Batch launcher for restricted environments
+│
+├── source/                       ← Core scripts
+│   ├── collect.ps1               ← Forensic collection engine
+│   ├── Analyze-Investigation.ps1 ← Analysis engine
+│   └── deploy_multi_server.ps1   ← Multi-host deployment
+│
+├── docs/                         ← Documentation (organized by audience)
+│   ├── analyst/                  ← For forensic analysts
+│   ├── sysadmin/                 ← For system administrators  
+│   ├── reference/                ← Quick references
+│   └── *.md                      ← Technical guides
+│
+├── modules/                      ← PowerShell analysis modules
+│   └── CadoBatchAnalysis/        ← Main analysis module
+│
+├── tools/                        ← External utilities
+│   ├── bins/                     ← Core tools (RawCopy, etc.)
+│   └── optional/                 ← Zimmerman tools, Yara, etc.
+│
+├── investigations/               ← Output directory (created at runtime)
+│   └── [HOSTNAME]/[TIMESTAMP]/   ← Per-collection results
+│
+├── templates/                    ← Investigation templates
+└── archive/                      ← Historical documentation
 ```
 
 ### Analyst Technical Guides

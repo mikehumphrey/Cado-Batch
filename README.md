@@ -26,53 +26,99 @@ A PowerShell-based forensic evidence collector for modern Windows systems (Windo
 - Output: `releases/<timestamp>/` plus `releases/HER-Collector.zip`.
 - Release artifacts in `releases/` are generated and ignored by git; commit the source scripts only.
 
-## Data Collected
+## Data Sources Collected
 
-The script collects the following forensic artifacts:
+HER collects comprehensive forensic artifacts across multiple categories. All collected data is placed in a `collected_files` directory and optionally compressed into `collected_files.zip`.
 
--   **NTFS Metadata**:
-    -   `$MFT` (Master File Table) from the system drive.
-    -   `$LogFile` (NTFS Log File) from the system drive.
-    -   `$UsnJrnl` (Update Sequence Number Journal) from the system drive.
+### Core System Artifacts
 
--   **Windows Event Logs**:
-    -   All `.evtx` files from `%SystemRoot%\System32\winevt\logs\`.
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **$MFT** | `C:\$MFT` | Master File Table - complete file system timeline, reveals deleted files, file creation/modification times, file sizes, parent directories |
+| **$LogFile** | `C:\$LogFile` | NTFS transaction log - tracks recent file system changes, captures file deletions and modifications before MFT updates |
+| **$UsnJrnl** | `C:\$Extend\$UsnJrnl` | Update Sequence Number Journal - chronological log of all file system changes, critical for timeline reconstruction |
+| **Event Logs** | `%SystemRoot%\System32\winevt\logs\*.evtx` | System, Security, Application logs - user logons, process execution, service installations, failed authentication attempts |
 
--   **Registry Hives**:
-    -   System hives: `SYSTEM`, `SOFTWARE`, `SAM`, `SECURITY`, `DEFAULT` from `%SystemRoot%\System32\Config`.
-    -   User hives: `NTUSER.DAT` and `UsrClass.dat` from each user profile.
+### Registry Hives
 
--   **System Information & Configuration**:
-    -   Recursive directory listing of the root of the system drive (`C:\`).
-    -   HOSTS file from `%SystemRoot%\System32\drivers\etc\`.
-    -   Windows Scheduled Tasks (XML files).
-    -   Prefetch files from `%SystemRoot%\Prefetch\`.
-    -   Amcache.hve (Application Compatibility cache).
-    -   SRUM database (`SRUDB.dat`) - System Resource Usage Monitor.
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **SYSTEM** | `%SystemRoot%\System32\Config\SYSTEM` | Network configuration, mounted devices, USB history, services, Windows version, last shutdown time |
+| **SOFTWARE** | `%SystemRoot%\System32\Config\SOFTWARE` | Installed applications, file associations, user assist (program execution counts), MRU lists |
+| **SAM** | `%SystemRoot%\System32\Config\SAM` | Local user accounts, password hashes (NTLM), account creation dates, last logon times |
+| **SECURITY** | `%SystemRoot%\System32\Config\SECURITY` | Security policy settings, audit configurations, Kerberos tickets cache |
+| **DEFAULT** | `%SystemRoot%\System32\Config\DEFAULT` | Default user profile settings applied to new accounts |
+| **NTUSER.DAT** | `C:\Users\[user]\NTUSER.DAT` | Per-user settings, recent documents, typed URLs, Run MRU, search history |
+| **UsrClass.dat** | `C:\Users\[user]\AppData\Local\Microsoft\Windows\UsrClass.dat` | COM object interactions, ShellBags (folder access history), file type associations |
 
--   **Search & Indexing**:
-    -   Windows Search Index database (`Windows.db`).
-    -   Per-user Windows Search data.
+### Program Execution Evidence
 
--   **File System & Storage**:
-    -   Recycle Bin metadata (`$Recycle.Bin\`).
-    -   Windows Temp directory (`%SystemRoot%\Temp\`).
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **Prefetch** | `%SystemRoot%\Prefetch\*.pf` | Program execution history, run counts, last execution time, files/directories accessed by programs |
+| **Amcache.hve** | `%SystemRoot%\appcompat\Programs\Amcache.hve` | Application compatibility cache - SHA1 hashes of executables, first execution time, program paths |
+| **SRUM** | `%SystemRoot%\System32\sru\SRUDB.dat` | System Resource Usage Monitor - application runtime, network usage per app, bandwidth consumption |
+| **Scheduled Tasks** | `%SystemRoot%\System32\Tasks\` | Persistence mechanisms, scheduled malware execution, legitimate task configurations |
 
--   **User Activity & History**:
-    -   Browser history (Edge, Chrome, Firefox) for each user.
-    -   Recent files and Jump Lists from `AppData\Roaming\Microsoft\Windows\Recent\`.
-    -   PowerShell console history (`ConsoleHost_history.txt`).
-    -   User Temp directories (`AppData\Local\Temp\`).
-    -   OneDrive sync logs and metadata.
+### User Activity & Browser Data
 
--   **Network & Connectivity**:
-    -   Network adapter configuration and status.
-    -   Routing table information.
-    -   RDP (Remote Desktop Protocol) connection history.
-    -   WiFi profile names and information.
-    -   USB device history from the registry.
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **Browser History** | `AppData\Local\[Browser]\User Data\Default\History` | Web browsing history (URLs, visit times), download history, search queries |
+| **Recent Files** | `AppData\Roaming\Microsoft\Windows\Recent\` | LNK files showing recently opened documents, Jump Lists with frequent/pinned items |
+| **PowerShell History** | `AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt` | All PowerShell commands executed by user, reveals scripting activity and administrative actions |
+| **OneDrive Logs** | `AppData\Local\Microsoft\OneDrive\logs\` | Cloud synchronization activity, file uploads/downloads, sync errors |
+| **Windows Search** | `AppData\Local\Microsoft\Windows Search\Data\Applications\Windows\Windows.db` | File content indexing database, can reveal document contents and metadata |
 
-All collected data is placed in a `collected_files` directory and then compressed into a single `collected_files.zip` archive.
+### Network & Connectivity
+
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **RDP History** | Registry: `HKCU\Software\Microsoft\Terminal Server Client\Default` | Remote Desktop connection targets, reveals lateral movement or remote access patterns |
+| **WiFi Profiles** | `netsh wlan show profile` output | Wireless networks previously connected to, helps establish device location history |
+| **USB Device History** | Registry: `HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR` | All USB storage devices connected, vendor/product IDs, serial numbers, connection timestamps |
+| **Network Configuration** | `ipconfig /all`, `Get-NetAdapter`, `Get-NetRoute` | IP addresses, MAC addresses, DNS servers, routing tables, adapter status |
+| **HOSTS File** | `%SystemRoot%\System32\drivers\etc\hosts` | DNS override entries, may reveal malware C2 redirection or development environments |
+
+### File System & Storage
+
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **Recycle Bin** | `C:\$Recycle.Bin\` | Deleted files metadata ($I files), original filenames and paths, deletion timestamps |
+| **Windows Temp** | `%SystemRoot%\Temp\` | System-level temporary files, installer remnants, crash dumps, malware staging areas |
+| **User Temp** | `AppData\Local\Temp\` | User-level temporary files, browser cache, application temp data, downloaded executables |
+| **C:\ Directory Listing** | Root directory enumeration | Top-level file/folder structure, reveals unusual directories or staging areas |
+
+### Domain Controller & Server Role Artifacts
+*(Collected automatically when roles are detected)*
+
+| Data Source | Location | Forensic Value |
+|-------------|----------|----------------|
+| **NTDS.dit** | `C:\Windows\NTDS\ntds.dit` | Active Directory database - all domain users, computers, groups, password hashes, Kerberos keys |
+| **SYSVOL** | `C:\Windows\SYSVOL\sysvol\` | Group Policy Objects (GPOs), logon scripts, domain-wide policies, persistence mechanisms |
+| **DNS Logs** | `C:\Windows\System32\dns\dns.log` | DNS queries and responses, can reveal command & control (C2) communications |
+| **DNS Zone Files** | `C:\Windows\System32\dns\*.dns` | DNS zone configurations, A/AAAA/CNAME records, helps map internal network infrastructure |
+| **DHCP Database** | `C:\Windows\System32\dhcp\*.mdb` | IP address leases, MAC to IP mappings, device hostname history, connection timestamps |
+| **IIS Logs** | `C:\inetpub\logs\LogFiles\` | Web server access logs (last 90 days), POST/GET requests, authentication attempts, suspicious URIs |
+| **IIS Configuration** | `C:\Windows\System32\inetsrv\config\` | Web application configurations, virtual directories, authentication settings, installed modules |
+| **Hyper-V Config** | `C:\ProgramData\Microsoft\Windows\Hyper-V\` | Virtual machine configurations, reveals rogue VMs or compromised guest systems |
+| **DFS Metadata** | `C:\System Volume Information\DFSR\` | Distributed File System replication logs, file staging activity across domain controllers |
+| **Print Server Metadata** | `C:\Windows\System32\spool\PRINTERS\` | Print job metadata, reveals document names, user activity, potential data exfiltration |
+
+### Chain of Custody & Verification
+
+| Data Source | Purpose | Forensic Value |
+|-------------|---------|----------------|
+| **SHA256 Manifest** | Generated with `hashdeep64.exe` | Cryptographic hashes of all collected files, ensures data integrity and admissibility |
+| **Collection Log** | `forensic_collection_[HOSTNAME]_[TIMESTAMP].txt` | Complete collection timeline, warnings, errors, tool execution details, establishes provenance |
+| **Collection Summary** | `COLLECTION_SUMMARY.txt` | Statistics, success rate, detected server roles, hypervisor information, quick reference report |
+
+### Optional Features
+
+- **`-NoZip` Parameter**: Skip compression for collections >4GB or when immediate analysis is needed
+- **Automatic 64-bit Tool Selection**: Prefers 64-bit binaries (hashdeep64, sigcheck64, strings64) for better performance
+- **Path Flattening**: Long registry paths (>200 chars) automatically copied to flat structure for hash compatibility
+- **Role-Based Collection**: Automatically detects and collects Domain Controller, DNS, DHCP, IIS, Hyper-V, DFS, and Print Server artifacts
 
 # How to execute
 
