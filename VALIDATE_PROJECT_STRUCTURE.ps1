@@ -61,10 +61,12 @@ Write-LogEntry "-------------------------------------------------------------"
 
 $folders = @(
     @{name="source"; desc="Collection scripts"},
+    @{name="modules"; desc="PowerShell modules"},
     @{name="tools"; desc="Executables and utilities"},
     @{name="investigations"; desc="Investigation results"},
     @{name="templates"; desc="Output templates"},
-    @{name="documentation"; desc="Guides and references"},
+    @{name="docs"; desc="Organized documentation"},
+    @{name="archive"; desc="Historical/legacy documents"},
     @{name="logs"; desc="Collection logs (created at runtime)"}
 )
 
@@ -84,20 +86,44 @@ foreach ($folder in $folders) {
 # ============================================================================
 
 Write-LogEntry ""
-Write-LogEntry "2. COLLECTION SCRIPTS (source/)"
+Write-LogEntry "2. CORE SCRIPTS"
 Write-LogEntry "-------------------------------------------------------------"
 
-$scripts = @("collect.ps1", "RUN_ME.bat", "collect.bat", "deploy_multi_server.ps1")
+# Root launcher scripts
+$rootScripts = @(
+    @{path="run-collector.ps1"; desc="Main launcher script"},
+    @{path="RUN_COLLECT.bat"; desc="Batch launcher"},
+    @{path="Build-Release.ps1"; desc="Release packaging script"}
+)
 
-foreach ($script in $scripts) {
-    $scriptFile = Join-Path $scriptPath "source\$script"
+foreach ($script in $rootScripts) {
+    $scriptFile = Join-Path $scriptPath $script.path
     if (Test-Path $scriptFile -PathType Leaf) {
         $size = (Get-Item $scriptFile).Length / 1KB
-        $sizeRounded = [math]::Round($size, 0)
-        Write-LogEntry ("  [PASS] " + $script + " (" + $sizeRounded + " KB)")
+        $sizeRounded = [math]::Round($size, 1)
+        Write-LogEntry ("  [PASS] " + $script.path + " - " + $script.desc + " (" + $sizeRounded + " KB)")
         $passed++
     } else {
-        Write-LogEntry ("  [FAIL] " + $script + " [NOT FOUND]")
+        Write-LogEntry ("  [FAIL] " + $script.path + " [NOT FOUND]")
+        $failed++
+    }
+}
+
+# Source folder scripts
+$sourceScripts = @(
+    @{path="collect.ps1"; desc="Main collection engine"},
+    @{path="Analyze-Investigation.ps1"; desc="Analysis script"}
+)
+
+foreach ($script in $sourceScripts) {
+    $scriptFile = Join-Path $scriptPath "source\$($script.path)"
+    if (Test-Path $scriptFile -PathType Leaf) {
+        $size = (Get-Item $scriptFile).Length / 1KB
+        $sizeRounded = [math]::Round($size, 1)
+        Write-LogEntry ("  [PASS] source/" + $script.path + " - " + $script.desc + " (" + $sizeRounded + " KB)")
+        $passed++
+    } else {
+        Write-LogEntry ("  [FAIL] source/" + $script.path + " [NOT FOUND]")
         $failed++
     }
 }
@@ -107,18 +133,14 @@ foreach ($script in $scripts) {
 # ============================================================================
 
 Write-LogEntry ""
-Write-LogEntry "3. PHASE 1 TOOLS (tools/bins/)"
+Write-LogEntry "3. REQUIRED TOOLS (tools/bins/)"
 Write-LogEntry "-------------------------------------------------------------"
 
 $tools = @(
-    "hashdeep.exe",
     "hashdeep64.exe",
-    "strings.exe",
     "strings64.exe",
-    "sigcheck.exe",
     "sigcheck64.exe",
-    "RawCopy.exe",
-    "zip.exe"
+    "RawCopy.exe"
 )
 
 $toolsPath = Join-Path $scriptPath "tools\bins"
@@ -172,14 +194,15 @@ Write-LogEntry ""
 Write-LogEntry "5. KEY DOCUMENTATION FILES"
 Write-LogEntry "-------------------------------------------------------------"
 
-$docs = @(
-    "PROJECT_STRUCTURE.md",
-    "QUICK_START.md",
-    "PHASE_2_IMPLEMENTATION_COMPLETE.md",
-    "README.md"
+# Root documentation
+$rootDocs = @(
+    "README.md",
+    "00_START_HERE.md",
+    "LICENSE",
+    "NOTICE"
 )
 
-foreach ($doc in $docs) {
+foreach ($doc in $rootDocs) {
     $docFile = Join-Path $scriptPath $doc
     if (Test-Path $docFile -PathType Leaf) {
         Write-LogEntry ("  [PASS] " + $doc)
@@ -190,26 +213,71 @@ foreach ($doc in $docs) {
     }
 }
 
+# Organized documentation folders
+$docFolders = @(
+    @{path="docs\analyst"; desc="Analyst documentation"},
+    @{path="docs\sysadmin"; desc="Sysadmin guides"},
+    @{path="docs\reference"; desc="Quick references"},
+    @{path="docs\DOCUMENTATION_INDEX.md"; desc="Documentation hub"}
+)
+
+foreach ($docFolder in $docFolders) {
+    $docPath = Join-Path $scriptPath $docFolder.path
+    if (Test-Path $docPath) {
+        Write-LogEntry ("  [PASS] " + $docFolder.path + " - " + $docFolder.desc)
+        $passed++
+    } else {
+        Write-LogEntry ("  [WARN] " + $docFolder.path + " [NOT FOUND]")
+        $warnings++
+    }
+}
+
 # ============================================================================
 # 6. OPTIONAL TOOLS
 # ============================================================================
 
 Write-LogEntry ""
-Write-LogEntry "6. PHASE 2+ OPTIONAL TOOLS (Placeholders)"
+Write-LogEntry "6. OPTIONAL ANALYSIS TOOLS"
 Write-LogEntry "-------------------------------------------------------------"
 
-$optionalTools = @("WinPrefetchView", "PECmd", "AmcacheParser")
 $optionalPath = Join-Path $scriptPath "tools\optional"
 
-foreach ($optTool in $optionalTools) {
-    $optToolPath = Join-Path $optionalPath $optTool
-    if (Test-Path $optToolPath -PathType Container) {
-        Write-LogEntry ("  [PASS] " + $optTool + " - Directory ready for tool installation")
+if (Test-Path $optionalPath -PathType Container) {
+    Write-LogEntry "  [PASS] tools/optional/ directory exists"
+    $passed++
+    
+    # Check for Zimmerman Tools
+    $zimToolsPath = Join-Path $optionalPath "ZimmermanTools"
+    if (Test-Path $zimToolsPath) {
+        Write-LogEntry "  [PASS] ZimmermanTools - Installed"
+        $passed++
+        
+        # Check for specific tools
+        $zimTools = @("Timeline Explorer", "MFTECmd", "PECmd", "EvtxECmd")
+        foreach ($tool in $zimTools) {
+            $toolPath = Get-ChildItem -Path $zimToolsPath -Recurse -Filter "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($toolPath) {
+                Write-LogEntry "    [PASS] $tool found"
+                $passed++
+            } else {
+                Write-LogEntry "    [INFO] $tool - Not installed (optional)"
+            }
+        }
+    } else {
+        Write-LogEntry "  [INFO] ZimmermanTools - Not installed (optional)"
+    }
+    
+    # Check for YARA rules
+    $yaraPath = Join-Path $scriptPath "tools\yara"
+    if (Test-Path $yaraPath) {
+        Write-LogEntry "  [PASS] tools/yara/ - YARA rules directory exists"
         $passed++
     } else {
-        Write-LogEntry ("  [WARN] " + $optTool + " - Directory not found")
-        $warnings++
+        Write-LogEntry "  [INFO] tools/yara/ - Not found (optional)"
     }
+} else {
+    Write-LogEntry "  [WARN] tools/optional/ directory not found"
+    $warnings++
 }
 
 # ============================================================================
@@ -238,17 +306,21 @@ if ($failed -eq 0) {
     Write-LogEntry ""
     Write-LogEntry "  Next Steps:"
     Write-LogEntry "  -----------------------------------------------------------"
-    Write-LogEntry "  1. Test single-server collection: .\source\RUN_ME.bat"
-    Write-LogEntry "  2. Test multi-server deployment: .\source\deploy_multi_server.ps1 -Targets 'SERVER01','SERVER02'"
-    Write-LogEntry "  3. Download optional tools when ready (Phase 2+ analysis):"
-    Write-LogEntry "     - WinPrefetchView: https://www.nirsoft.net/utils/win_prefetch_view.html"
-    Write-LogEntry "     - PECmd: https://github.com/EricZimmerman/PECmd/releases"
-    Write-LogEntry "     - AmcacheParser: https://github.com/EricZimmerman/AmcacheParser/releases"
+    Write-LogEntry "  1. Quick Start: Read 00_START_HERE.md"
+    Write-LogEntry "  2. Test collection: .\run-collector.ps1"
+    Write-LogEntry "     - With transfer: .\run-collector.ps1 -AnalystWorkstation 'WORKSTATION'"
+    Write-LogEntry "  3. Build release package: .\Build-Release.ps1 -Zip"
+    Write-LogEntry "  4. Analyze results: .\source\Analyze-Investigation.ps1 -InvestigationPath 'path'"
+    Write-LogEntry ""
+    Write-LogEntry "  Optional Tools:"
+    Write-LogEntry "     - Zimmerman Tools: https://ericzimmerman.github.io/"
+    Write-LogEntry "     - Download all tools with 'Get-ZimmermanTools.ps1'"
     Write-LogEntry ""
     Write-LogEntry "  Documentation:"
-    Write-LogEntry "     -> PROJECT_STRUCTURE.md (full organization details)"
-    Write-LogEntry "     -> QUICK_START.md (5-minute quick start)"
-    Write-LogEntry "     -> documentation/PHASE_2_TESTING_GUIDE.md (validation tests)"
+    Write-LogEntry "     -> 00_START_HERE.md (project overview)"
+    Write-LogEntry "     -> docs/DOCUMENTATION_INDEX.md (all documentation)"
+    Write-LogEntry "     -> docs/sysadmin/ (deployment guides)"
+    Write-LogEntry "     -> docs/analyst/ (analysis guides)"
     Write-LogEntry ""
 } else {
     Write-LogEntry "[FAIL] PROJECT STRUCTURE NEEDS ATTENTION"

@@ -5,7 +5,10 @@ param(
     [string]$RootPath,
     
     [Parameter(Mandatory=$false)]
-    [switch]$NoZip
+    [switch]$NoZip,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$AnalystWorkstation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -823,11 +826,11 @@ try {
     Write-Host "Successfully collected network and connection artifacts."
 
     # ============================================================================
-    # PHASE 1: Hash Verification and Signature Analysis
+    # Chain of Custody: Hash Manifests and Code Signing
     # ============================================================================
     
-    Write-Verbose "Starting Phase 1 tool integration..."
-    Write-Log "Starting Phase 1: Hash verification and signature analysis"
+    Write-Verbose "Generating integrity verification data..."
+    Write-Log "Creating hash manifests and verifying code signatures for chain of custody"
     
     # Generate SHA256 Manifest using hashdeep
     Write-Verbose "Generating SHA256 hash manifest..."
@@ -876,7 +879,7 @@ try {
             Add-CollectionResult -ItemName "SHA256 Hash Manifest" -Status Warning -Message "Generation failed: $_"
         }
     } else {
-        Write-Log "Note: hashdeep.exe not found in bins/ - SHA256 manifest skipped (Phase 1 tool not installed)" -Level Warning
+        Write-Log "Note: hashdeep.exe not found in bins/ - SHA256 manifest skipped" -Level Warning
         Write-Verbose "hashdeep.exe not available - skipping hash verification"
     }
     
@@ -907,7 +910,7 @@ try {
             Add-CollectionResult -ItemName "Executable Signature Verification" -Status Warning -Message "Verification failed: $_"
         }
     } else {
-        Write-Log "Note: sigcheck.exe not found in bins/ - signature verification skipped (Phase 1 tool not installed)" -Level Warning
+        Write-Log "Note: sigcheck.exe not found in bins/ - signature verification skipped" -Level Warning
         Write-Verbose "sigcheck.exe not available - skipping signature verification"
     }
     
@@ -940,23 +943,23 @@ try {
             Write-Host "Warning: String extraction failed (continuing collection)"
         }
     } else {
-        Write-Log "Note: strings.exe not found in bins/ - string extraction skipped (Phase 1 tool not installed)" -Level Warning
+        Write-Log "Note: strings.exe not found in bins/ - string extraction skipped" -Level Warning
         Write-Verbose "strings.exe not available - skipping string extraction"
     }
     
-    Write-Log "Phase 1 tools integration completed"
+    Write-Log "Chain of custody verification completed"
 
     # ============================================================================
-    # PHASE 2: Advanced Artifact Parsing and Enhanced Collection
+    # User Activity Analysis: Browser History and Application Usage
     # ============================================================================
     
-    Write-Log "Starting Phase 2: Advanced artifact parsing and enhanced browser collection"
+    Write-Log "Extracting user activity artifacts: browser history, application execution, and resource usage"
     
-    # Function to parse Chrome history
+    # Browser History Extraction
     function Export-ChromeHistory {
         param([string]$OutputPath)
         
-        Write-Log "Extracting Chrome browsing history..."
+        Write-Log "Extracting Chrome browsing history (URLs, downloads, searches)..."
         $chromeProfiles = @()
         $chromeHistoryData = @()
         
@@ -1012,11 +1015,11 @@ try {
         }
     }
     
-    # Function to parse Firefox history
+    # Firefox History Extraction
     function Export-FirefoxHistory {
         param([string]$OutputPath)
         
-        Write-Log "Extracting Firefox browsing history..."
+        Write-Log "Extracting Firefox browsing history (URLs, downloads, searches)..."
         
         try {
             $appData = $env:APPDATA
@@ -1048,11 +1051,11 @@ try {
         }
     }
     
-    # Function to parse prefetch files to readable format
+    # Program Execution Timeline from Prefetch
     function Export-PrefetchAnalysis {
         param([string]$OutputPath)
         
-        Write-Log "Analyzing prefetch files for program execution timeline..."
+        Write-Log "Analyzing prefetch files (program execution counts and timestamps)..."
         
         try {
             $prefetchPath = "C:\Windows\Prefetch"
@@ -1095,11 +1098,11 @@ try {
         }
     }
     
-    # Function to extract SRUM database
+    # System Resource Usage Monitor (SRUM) - Application Resource Consumption
     function Export-SRUMData {
         param([string]$OutputPath)
         
-        Write-Log "Extracting System Resource Usage Monitor (SRUM) data..."
+        Write-Log "Extracting SRUM data (CPU, network, and disk usage per application)..."
         
         try {
             $srumDbPath = "C:\Windows\System32\sru\SRUDB.dat"
@@ -1131,11 +1134,11 @@ try {
         }
     }
     
-    # Function to extract Amcache for program execution history
+    # Application Compatibility Cache (Amcache) - Execution History
     function Export-AmcacheData {
         param([string]$OutputPath)
         
-        Write-Log "Extracting Application Compatibility Cache (Amcache) data..."
+        Write-Log "Extracting Amcache (program SHA1 hashes and first execution times)..."
         
         try {
             $amcachePath = "C:\Windows\appcompat\Programs\Amcache.hve"
@@ -1166,11 +1169,11 @@ try {
         }
     }
     
-    # Function to detect suspicious scheduled tasks
+    # Scheduled Task Analysis - Persistence Mechanisms
     function Export-SuspiciousScheduledTasks {
         param([string]$OutputPath)
         
-        Write-Log "Analyzing scheduled tasks for suspicious activity..."
+        Write-Log "Analyzing scheduled tasks (detecting suspicious commands and patterns)..."
         
         try {
             $tasksPath = "C:\Windows\System32\Tasks"
@@ -1248,11 +1251,11 @@ try {
         }
     }
     
-    # Function to collect additional browser artifacts
+    # Extended Browser Artifacts - Cache and Cookies
     function Export-BrowserArtifacts {
         param([string]$OutputPath)
         
-        Write-Log "Collecting additional browser artifacts..."
+        Write-Log "Collecting Edge and Internet Explorer cache artifacts..."
         
         try {
             $localAppData = $env:LOCALAPPDATA
@@ -1281,24 +1284,24 @@ try {
         }
     }
     
-    # Execute Phase 2 collections
+    # Execute user activity and application usage analysis
     try {
-        # Create Phase 2 output directory
-        $phase2OutputDir = SafeJoinPath $outputDir "Phase2_Advanced_Analysis"
-        New-Item -ItemType Directory -Path $phase2OutputDir -Force -ErrorAction SilentlyContinue | Out-Null
+        # Create analysis output directory
+        $analysisOutputDir = SafeJoinPath $outputDir "UserActivity_Analysis"
+        New-Item -ItemType Directory -Path $analysisOutputDir -Force -ErrorAction SilentlyContinue | Out-Null
         
-        # Execute each Phase 2 function
-        Export-ChromeHistory -OutputPath $phase2OutputDir
-        Export-FirefoxHistory -OutputPath $phase2OutputDir
-        Export-PrefetchAnalysis -OutputPath $phase2OutputDir
-        Export-SRUMData -OutputPath $phase2OutputDir
-        Export-AmcacheData -OutputPath $phase2OutputDir
-        Export-SuspiciousScheduledTasks -OutputPath $phase2OutputDir
-        Export-BrowserArtifacts -OutputPath $phase2OutputDir
+        # Extract all user activity artifacts
+        Export-ChromeHistory -OutputPath $analysisOutputDir
+        Export-FirefoxHistory -OutputPath $analysisOutputDir
+        Export-PrefetchAnalysis -OutputPath $analysisOutputDir
+        Export-SRUMData -OutputPath $analysisOutputDir
+        Export-AmcacheData -OutputPath $analysisOutputDir
+        Export-SuspiciousScheduledTasks -OutputPath $analysisOutputDir
+        Export-BrowserArtifacts -OutputPath $analysisOutputDir
         
-        Write-Log "Phase 2 advanced analysis completed successfully"
+        Write-Log "User activity and application analysis completed successfully"
     } catch {
-        Write-Log "Phase 2 encountered errors (collection may be partial): $_" -Level Warning
+        Write-Log "User activity analysis encountered errors (collection may be partial): $_" -Level Warning
     }
 
 } catch {
@@ -1385,6 +1388,150 @@ if (-not $NoZip) {
     $zipFile = "(Compression skipped)"
 }
 
+# ============================================================================
+# Transfer to Analyst Workstation
+# ============================================================================
+
+if ($AnalystWorkstation) {
+    Write-Log "============================================================================"
+    Write-Log "Transferring collected files to analyst workstation"
+    Write-Log "============================================================================"
+    
+    try {
+        # Normalize analyst workstation (remove backslashes if provided)
+        $targetHost = $AnalystWorkstation -replace '\\\\', '' -replace '\\', ''
+        
+        # Handle localhost specially
+        if ($targetHost -eq 'localhost' -or $targetHost -eq '127.0.0.1' -or $targetHost -eq $env:COMPUTERNAME) {
+            $destinationPath = "C:\Temp\Investigations\$computerName\$timestamp"
+        } else {
+            $destinationPath = "\\$targetHost\c`$\Temp\Investigations\$computerName\$timestamp"
+        }
+        
+        Write-Log "Target destination: $destinationPath"
+        Write-Host ""
+        Write-Host "Transferring files to analyst workstation..." -ForegroundColor Cyan
+        Write-Host "  Source: $outputRoot" -ForegroundColor White
+        Write-Host "  Destination: $destinationPath" -ForegroundColor White
+        
+        # Determine what to transfer based on zip file status
+        $transferZipOnly = $false
+        $zipFilePath = Join-Path $outputRoot "collected_files.zip"
+        if ($zipFile -and $zipFile -ne "(Compression skipped)" -and $zipFile -ne "(Compression failed - files remain uncompressed)" -and (Test-Path $zipFilePath)) {
+            $transferZipOnly = $true
+            Write-Host "  Transfer mode: ZIP file only (compression successful)" -ForegroundColor Green
+            Write-Log "Transferring compressed ZIP file only"
+        } else {
+            Write-Host "  Transfer mode: Full directory (no zip available)" -ForegroundColor Yellow
+            Write-Log "Transferring full directory (zip not available)"
+        }
+        Write-Host ""
+        
+        # Test network connectivity if not localhost
+        if ($targetHost -ne 'localhost' -and $targetHost -ne '127.0.0.1' -and $targetHost -ne $env:COMPUTERNAME) {
+            Write-Log "Testing connectivity to $targetHost..."
+            $pingResult = Test-Connection -ComputerName $targetHost -Count 1 -Quiet -ErrorAction SilentlyContinue
+            
+            if (-not $pingResult) {
+                Write-Log "Warning: Cannot ping $targetHost - attempting transfer anyway" -Level Warning
+                Write-Host "Warning: Cannot ping $targetHost - attempting transfer anyway..." -ForegroundColor Yellow
+            } else {
+                Write-Log "Successfully connected to $targetHost"
+            }
+        }
+        
+        # Create destination directory structure
+        $destParent = Split-Path $destinationPath -Parent
+        if (-not (Test-Path $destParent)) {
+            Write-Log "Creating destination directory structure..."
+            New-Item -ItemType Directory -Path $destParent -Force -ErrorAction Stop | Out-Null
+        }
+        
+        # Build robocopy log path
+        $robocopyLog = Join-Path $destinationPath "_ROBOCopyLog.txt"
+        
+        # Execute robocopy - copy zip only or full directory
+        Write-Log "Starting robocopy transfer..."
+        
+        if ($transferZipOnly) {
+            # Copy only the zip file, log file, and summary
+            $robocopyArgs = @(
+                $outputRoot,
+                $destinationPath,
+                'collected_files.zip',                          # Only copy the zip file
+                "forensic_collection_${computerName}_${timestamp}.txt",  # Log file
+                'COLLECTION_SUMMARY.txt',                       # Summary file
+                '/DCOPY:T',              # Copy directory timestamps
+                '/COPY:DAT',             # Copy Data, Attributes, and Timestamps
+                '/R:3',                  # Retry 3 times on failed copies
+                '/W:5',                  # Wait 5 seconds between retries
+                '/LOG+:' + $robocopyLog, # Append to log file
+                '/TEE',                  # Output to console and log
+                '/NP'                    # No progress (cleaner output)
+            )
+        } else {
+            # Copy entire directory
+            $robocopyArgs = @(
+                $outputRoot,
+                $destinationPath,
+                '/E',                    # Copy subdirectories including empty ones
+                '/DCOPY:T',              # Copy directory timestamps
+                '/COPY:DAT',             # Copy Data, Attributes, and Timestamps
+                '/R:3',                  # Retry 3 times on failed copies
+                '/W:5',                  # Wait 5 seconds between retries
+                '/LOG+:' + $robocopyLog, # Append to log file
+                '/TEE',                  # Output to console and log
+                '/NP'                    # No progress (cleaner output)
+            )
+        }
+        
+        $robocopyResult = & robocopy @robocopyArgs
+        $robocopyExitCode = $LASTEXITCODE
+        
+        # Robocopy exit codes: 0-7 are success, 8+ are errors
+        # 0 = No files copied, 1 = Files copied successfully, 2 = Extra files/dirs detected, etc.
+        if ($robocopyExitCode -lt 8) {
+            Write-Host ""
+            if ($transferZipOnly) {
+                Write-Host "Successfully transferred ZIP archive to analyst workstation!" -ForegroundColor Green
+                Write-Log "Robocopy completed successfully - ZIP file transferred (exit code: $robocopyExitCode)"
+            } else {
+                Write-Host "Successfully transferred full collection to analyst workstation!" -ForegroundColor Green
+                Write-Log "Robocopy completed successfully - full directory transferred (exit code: $robocopyExitCode)"
+            }
+            Write-Log "Files transferred to: $destinationPath"
+            Write-Log "Transfer log: $robocopyLog"
+            
+            # Store destination for summary report
+            if ($transferZipOnly) {
+                $script:analystDestination = "$destinationPath (ZIP archive only)"
+            } else {
+                $script:analystDestination = "$destinationPath (full collection)"
+            }
+        } else {
+            Write-Host ""
+            Write-Host "Warning: Robocopy completed with errors (exit code: $robocopyExitCode)" -ForegroundColor Yellow
+            Write-Host "Some files may not have been transferred. Check the log file." -ForegroundColor Yellow
+            Write-Log "Warning: Robocopy exit code $robocopyExitCode indicates errors" -Level Warning
+            Write-Log "Transfer log: $robocopyLog"
+            
+            $script:analystDestination = "$destinationPath (transfer had errors - see log)"
+        }
+        
+    } catch {
+        Write-Log "Error during file transfer: $_" -Level Error
+        Write-Host ""
+        Write-Host "Error: Failed to transfer files to analyst workstation" -ForegroundColor Red
+        Write-Host "  Error: $_" -ForegroundColor Red
+        Write-Host "  Files remain in local collection folder" -ForegroundColor Yellow
+        Write-Host ""
+        
+        $script:analystDestination = "(Transfer failed: $_)"
+    }
+} else {
+    $script:analystDestination = $null
+}
+
 # Generate detailed summary
 $summaryFile = Join-Path $outputRoot "COLLECTION_SUMMARY.txt"
 @"
@@ -1443,6 +1590,10 @@ if ($zipFile -and $zipFile -ne "(Compression skipped)" -and $zipFile -ne "(Compr
     "Compressed Archive: $zipFile" | Add-Content $summaryFile
 }
 
+if ($script:analystDestination) {
+    "Analyst Workstation Copy: $($script:analystDestination)" | Add-Content $summaryFile
+}
+
 @"
 Log File: $logFile
 This Summary: $summaryFile
@@ -1493,6 +1644,13 @@ if ($zipFile -and $zipFile -ne "(Compression skipped)" -and $zipFile -ne "(Compr
     Write-Host "  Compressed Archive: $zipFile" -ForegroundColor White
 } elseif ($zipFile) {
     Write-Host "  Compressed Archive: $zipFile" -ForegroundColor Yellow
+}
+if ($script:analystDestination) {
+    if ($script:analystDestination -like "*(Transfer failed*" -or $script:analystDestination -like "*had errors*") {
+        Write-Host "  Analyst Workstation: $($script:analystDestination)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  Analyst Workstation: $($script:analystDestination)" -ForegroundColor Green
+    }
 }
 Write-Host "  Summary Report: $summaryFile" -ForegroundColor White
 Write-Host "  Log File: $logFile" -ForegroundColor White

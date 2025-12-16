@@ -11,12 +11,20 @@
 
 .PARAMETER NoZip
     Skip compression of collected files. Useful for large collections (>4GB) to save time.
+
+.PARAMETER AnalystWorkstation
+    Hostname or IP of analyst workstation to copy collected files to via robocopy.
+    Files will be copied to C$\Temp\Investigations\[Hostname]\[Timestamp]
+    Example: -AnalystWorkstation "ITDL251263" or -AnalystWorkstation "localhost"
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
-    [switch]$NoZip
+    [switch]$NoZip,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$AnalystWorkstation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -80,11 +88,17 @@ Write-Host "Starting collection from: $root" -ForegroundColor Cyan
 if ($NoZip) {
     Write-Host "Compression will be skipped (-NoZip parameter)" -ForegroundColor Yellow
 }
+if ($AnalystWorkstation) {
+    Write-Host "Files will be copied to analyst workstation: $AnalystWorkstation" -ForegroundColor Cyan
+}
 
 try {
     $collectArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $collect, '-RootPath', $root, '-Verbose')
     if ($NoZip) {
         $collectArgs += '-NoZip'
+    }
+    if ($AnalystWorkstation) {
+        $collectArgs += @('-AnalystWorkstation', $AnalystWorkstation)
     }
     
     & powershell @collectArgs
