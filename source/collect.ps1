@@ -1481,7 +1481,35 @@ if (-not $NoZip) {
             }
         }
         
-        Compress-Archive -Path "$outputDir\*" -DestinationPath $zipFile -ErrorAction Stop
+        # Try Compress-Archive first (PowerShell 5.0+)
+        if (Get-Command Compress-Archive -ErrorAction SilentlyContinue) {
+            Write-Verbose "Using Compress-Archive (PowerShell 5.0+)"
+            Compress-Archive -Path "$outputDir\*" -DestinationPath $zipFile -ErrorAction Stop
+        } else {
+            # Fallback: Use Windows shell compression (older PowerShell versions)
+            Write-Verbose "Using Windows shell compression (Compress-Archive not available)"
+            Write-Log "Note: Using shell compression (Compress-Archive not available in this PowerShell version)"
+            
+            # Create shell COM object for compression
+            $shell = New-Object -com shell.application
+            $zip = $shell.NameSpace($zipFile)
+            
+            if ($zip -eq $null) {
+                # Create empty zip file first
+                "" | Set-Content $zipFile
+                $shell = New-Object -com shell.application
+                $zip = $shell.NameSpace($zipFile)
+            }
+            
+            # Add files to zip
+            $items = Get-ChildItem -Path $outputDir
+            foreach ($item in $items) {
+                $zip.CopyHere($item.FullName)
+                # Wait for copy to complete (shell compression is asynchronous)
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        
         Write-Host "Successfully compressed files to $zipFile" -ForegroundColor Green
         Write-Log "Files compressed to: $zipFile"
     } catch {
@@ -1556,44 +1584,26 @@ if ($AnalystWorkstation) {
         }
         
         # Build robocopy log path
-        $robocopyLog = Join-Path $destinationPath "_ROBOCopyLog.txt"
+        $robocopyLog = Join-Path $destinationPath "ROBOCopyLog.txt"
         
         # Execute robocopy - copy zip only or full directory
         Write-Log "Starting robocopy transfer..."
         
+        # Build robocopy command as a string for better argument handling
+        # (PowerShell array expansion doesn't handle switches with colons well)
+        
         if ($transferZipOnly) {
             # Copy only the zip file, log file, and summary
-            $robocopyArgs = @(
-                $outputRoot,
-                $destinationPath,
-                'collected_files.zip',                          # Only copy the zip file
-                "forensic_collection_${computerName}_${timestamp}.txt",  # Log file
-                'COLLECTION_SUMMARY.txt',                       # Summary file
-                '/DCOPY:T',              # Copy directory timestamps
-                '/COPY:DAT',             # Copy Data, Attributes, and Timestamps
-                '/R:3',                  # Retry 3 times on failed copies
-                '/W:5',                  # Wait 5 seconds between retries
-                '/LOG+:' + $robocopyLog, # Append to log file
-                '/TEE',                  # Output to console and log
-                '/NP'                    # No progress (cleaner output)
-            )
+            $robocopyCmd = "robocopy `"$outputRoot`" `"$destinationPath`" collected_files.zip `"forensic_collection_${computerName}_${timestamp}.txt`" COLLECTION_SUMMARY.txt /DCOPY:T /COPY:DAT /R:3 /W:5 /LOG+:`"$robocopyLog`" /TEE /NP"
         } else {
             # Copy entire directory
-            $robocopyArgs = @(
-                $outputRoot,
-                $destinationPath,
-                '/E',                    # Copy subdirectories including empty ones
-                '/DCOPY:T',              # Copy directory timestamps
-                '/COPY:DAT',             # Copy Data, Attributes, and Timestamps
-                '/R:3',                  # Retry 3 times on failed copies
-                '/W:5',                  # Wait 5 seconds between retries
-                '/LOG+:' + $robocopyLog, # Append to log file
-                '/TEE',                  # Output to console and log
-                '/NP'                    # No progress (cleaner output)
-            )
+            $robocopyCmd = "robocopy `"$outputRoot`" `"$destinationPath`" /E /DCOPY:T /COPY:DAT /R:3 /W:5 /LOG+:`"$robocopyLog`" /TEE /NP"
         }
         
-        $robocopyResult = & robocopy @robocopyArgs
+        Write-Log "Robocopy command: $robocopyCmd"
+        
+        # Execute robocopy using Invoke-Expression for proper argument parsing
+        $robocopyResult = Invoke-Expression $robocopyCmd 2>&1
         $robocopyExitCode = $LASTEXITCODE
         
         # Robocopy exit codes: 0-7 are success, 8+ are errors
